@@ -1,16 +1,34 @@
 # coding=utf-8
 
 import socket
+import re
 
 
 def server_client(new_socket):
 
-    request = new_socket.recv(1024)
-    if request:
+    request = new_socket.recv(1024).decode("utf-8")
+    # 解析request
+    request_list = request.splitlines()
+    # 解析第一行 GET /index.html ... 
+    print(request_list[0])
+    rep_file = re.match(r"[^/]+(/[^ ]*)", request_list[0]).group(1)
+    print(rep_file)
+
+    try:
+        f = open(rep_file, "rb")
+    except:
+        response = "HTTP/1.1 404 NOT FOUND\r\n"
+        response += "\r\n"
+        response += "<h>404 NOT FOUND</h>"
+        print(response)
+    else:
+        html_content = f.read()
+        f.close()
         response = "HTTP/1.1 200 OK\r\n"
         response += "\r\n"
-        response += "<h1>hhhh</h>"
+        response += html_content
 
+    if request:
         new_socket.send(response.encode("utf-8"))
         new_socket.close()
         return request
