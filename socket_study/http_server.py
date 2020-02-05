@@ -23,6 +23,8 @@ def http_server():
 
     # 创建tcp套接字
     http_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    # 保证服务器在先调用close后，资源能被立即释放，防止上次的资源占用端口
+    http_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
     # 为其绑定固定的IP和端口号
     SERVER_IP = ""
