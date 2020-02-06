@@ -5,45 +5,36 @@ import re
 import multiprocessing
 
 
-def server_client(sockets):
+def server_client(new_socket, request):
     
-    # 将为客户端服务的套接字设置为非堵塞
-    for client_socket in sockets:
-        client_socket.setblocking(False)
-        try:
-            # 如果没有接收到客户端的请求，就会抛出异常
-            request = client_socket.recv(1024).decode("utf-8")
-        except Exception as err:
-            print("没有收到客户端的请求!")
-        else:
-            if request:
-                # 解析request
-                #request_list = request.splitlines()
-                ## 解析第一行 GET /index.html ... 
-                #rep_file = re.match(r"[^/]+(/[^ ]*)", request_list[0]).group(1)
-                print(request)
-                try:
-                    f = open(rep_file, "rb")
-                except:
-                    response = "HTTP/1.1 404 NOT FOUND\r\n"
-                    response += "\r\n"
-                    response += "<h>404 NOT FOUND</h>"
-                    print(response)
-                    client_socket.send(response.encode("utf-8"))
-                else:
-                    html_content = f.read()
-                    f.close()
-                    response = "HTTP/1.1 200 OK\r\n"
-                    response += "\r\n"
-                    response += html_content
-                    client_socket.send(response.encode("utf-8"))
-                    client_socket.close()
-            else:
-                sockets.remove(client_socket)
-                client_socket.close()
-                print("-----客户端请求关闭--------")
-
-
+    ## 尝试接收客户端发来的请求
+    #try:
+    #    request = new_socket.recv(1024).decode("utf-8")
+    ## 如果没有接收到客户端的请求，就会抛出异常
+    #except Exception as err:
+    #    print("没有收到客户端的请求!")
+    #    return 
+    #else:
+    # 解析request
+    request_list = request.splitlines()
+    # 解析第一行 GET /index.html ... 
+    rep_file = re.match(r"[^/]+(/[^ ]*)", request_list[0]).group(1)
+    try:
+        f = open(rep_file, "rb")
+    except:
+        response = "HTTP/1.1 404 NOT FOUND\r\n"
+        response += "Content-Length:4\r\n"
+        response += "\r\n"
+        response += "hhhh"
+        new_socket.send(response.encode("utf-8"))
+    else:
+        html_content = f.read()
+        f.close()
+        response_body = html_content
+        response_header = "HTTP/1.1 200 OK\r\n"
+        response_header += "Content-Length:%d\r\n" %len(response_body)
+        response = response_header.encode("utf-8") + "\r\n" + response_body
+        new_socket.send(response)
 
 
 def http_server():
@@ -70,20 +61,33 @@ def http_server():
         try:
             # 由于http_socket为非堵塞，当没有链接的时候就会抛出异常
             client_socket, clientAddr = http_socket.accept()
-            client_socket_list.append(client_socket)
         except:
-            continue
+            pass
         else:
-            server_client(client_socket_list)
+            client_socket.setblocking(False)
+            client_socket_list.append(client_socket)
+    
+        for new_socket in client_socket_list:
+            try:
+                request = new_socket.recv(1024).decode("utf-8")
+            except Exception as ret:
+                pass
+            else:
+                if request:
+                    server_client(new_socket, request)
+                else:
+                    client_socket_list.remove(new_socket)
+                    new_socket.close()
 
-        # # 使用一个子进程来完成服务
-        # server_process = multiprocessing.Process(target=server_client, args=(client_socket,))
-        # server_process.start()
 
-        # 由于两个进程中的套接字都指向系统中的同一个FD，
-        # 所以需要全部关闭才能开始tcp的4次挥手
-        # client_socket.close()
-        # client_request = server_client(client_socket)
+
+        
+        
+        
+    #server_client(new_socket)
+
+
+
 
        
     http_socket.close()
