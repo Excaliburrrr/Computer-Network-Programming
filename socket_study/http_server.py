@@ -2,6 +2,7 @@
 
 import socket
 import re
+import multiprocessing
 
 
 def server_client(new_socket):
@@ -10,10 +11,8 @@ def server_client(new_socket):
     # 解析request
     request_list = request.splitlines()
     # 解析第一行 GET /index.html ... 
-    print(request_list[0])
     rep_file = re.match(r"[^/]+(/[^ ]*)", request_list[0]).group(1)
-    print(rep_file)
-
+    print(request)
     try:
         f = open(rep_file, "rb")
     except:
@@ -28,12 +27,9 @@ def server_client(new_socket):
         response += "\r\n"
         response += html_content
 
-    if request:
-        new_socket.send(response.encode("utf-8"))
-        new_socket.close()
-        return request
-    else:
-        return False
+    new_socket.send(response.encode("utf-8"))
+
+    new_socket.close()
 
 
 def http_server():
@@ -54,19 +50,23 @@ def http_server():
 
     while True:
         # 循环接受数据
+        # 使用主进程来接收客户端链接
         client_socket, clientAddr = http_socket.accept()
 
-        # 接收客户端发送的请求
-        client_request = server_client(client_socket)
-        if client_request:
-            print("收到请求信息\n:%s\n" %client_request)
-            print("成功发送网页信息！")
-        else:
-            print("未收到请求，请重新访问")
+        # 使用一个子进程来完成服务
+        server_process = multiprocessing.Process(target=server_client, args=(client_socket,))
+        server_process.start()
+
+        # 由于两个进程中的套接字都指向系统中的同一个FD，
+        # 所以需要全部关闭才能开始tcp的4次挥手
+        client_socket.close()
+
+        #client_request = server_client(client_socket)
 
        
     http_socket.close()
 
 
 if __name__ == "__main__":
+
     http_server()
